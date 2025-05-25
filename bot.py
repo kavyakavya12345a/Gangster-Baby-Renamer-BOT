@@ -1,52 +1,41 @@
-import logging
-import logging.config
-from pyrogram import Client 
-from config import API_ID, API_HASH, BOT_TOKEN, FORCE_SUB, PORT
-from aiohttp import web
-from plugins.web_support import web_server
+import asyncio
+from pyrogram import Client, idle
+import os
 
-logging.config.fileConfig('logging.conf')
-logging.getLogger().setLevel(logging.INFO)
-logging.getLogger("pyrogram").setLevel(logging.ERROR)
+from plugins.cb_data import app as Client2
 
+TOKEN = os.environ.get("TOKEN", "")
+API_ID = int(os.environ.get("API_ID", ""))
+API_HASH = os.environ.get("API_HASH", "")
+STRING = os.environ.get("STRING", "")
 
-class Bot(Client):
+bot = Client(
+    "Renamer",
+    bot_token=TOKEN,
+    api_id=API_ID,
+    api_hash=API_HASH,
+    plugins=dict(root='plugins')
+)
 
-    def __init__(self):
-        super().__init__(
-            name="renamer",
-            api_id=API_ID,
-            api_hash=API_HASH,
-            bot_token=BOT_TOKEN,
-            workers=50,
-            plugins={"root": "plugins"},
-            sleep_threshold=5,
-        )
+async def start_all():
+    if STRING:
+        apps = [Client2, bot]
 
-    async def start(self):
-       await super().start()
-       me = await self.get_me()
-       self.mention = me.mention
-       self.username = me.username 
-       self.force_channel = FORCE_SUB
-       if FORCE_SUB:
-         try:
-            link = await self.export_chat_invite_link(FORCE_SUB)                  
-            self.invitelink = link
-         except Exception as e:
-            logging.warning(e)
-            logging.warning("Make Sure Bot admin in force sub channel")             
-            self.force_channel = None
-       app = web.AppRunner(await web_server())
-       await app.setup()
-       bind_address = "0.0.0.0"
-       await web.TCPSite(app, bind_address, PORT).start()
-       logging.info(f"{me.first_name} ✅✅ BOT started successfully ✅✅")
-      
+        # Clock sync ke liye chhoti delay
+        await asyncio.sleep(2)
 
-    async def stop(self, *args):
-      await super().stop()      
-      logging.info("Bot Stopped 🙄")
+        for app in apps:
+            await app.start()
         
-bot = Bot()
-bot.run()
+        await idle()
+
+        for app in apps:
+            await app.stop()
+
+    else:
+        await bot.start()
+        await idle()
+        await bot.stop()
+
+if name == "main":
+    asyncio.run(start_all())
